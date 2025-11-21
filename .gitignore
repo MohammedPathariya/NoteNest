@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+.vscode/
+
+# Conda environment (CRITICAL: prevents pushing the entire notenest env)
+notenest/
+# Or just the folder where it lives:
+anaconda3/
+
+# MongoDB/Database
+.mongo_history
+
+# Node/React (Frontend)
+/frontend/node_modules
+/frontend/build
+/frontend/.npm
+.env
