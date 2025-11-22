@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { SmartInput } from './components/SmartInput';
 import { NotesGrid } from './components/NotesGrid';
 import { CategoryModal } from './components/CategoryModal';
 import { AnalyticsView } from './components/AnalyticsView';
-import { BarChart3, Menu, X } from 'lucide-react';
+import { BarChart3, Menu } from 'lucide-react';
 import { Button } from './components/ui/button';
+import { NoteNestAPI, BackendNote, BackendCategory } from './api';
 
+// Frontend Interfaces (Mapped from Backend)
 export interface Category {
   id: string;
   name: string;
@@ -22,61 +24,86 @@ export interface Note {
   icon: string;
 }
 
-const defaultCategories: Category[] = [
-  { id: '1', name: 'Work', description: 'Professional tasks and projects', color: 'bg-orange-500' },
-  { id: '2', name: 'Personal', description: 'Personal life and self-care', color: 'bg-teal-500' },
-  { id: '3', name: 'Ideas', description: 'Creative thoughts and brainstorms', color: 'bg-purple-500' },
-  { id: '4', name: 'To-Do', description: 'Action items and tasks', color: 'bg-rose-500' },
-  { id: '5', name: 'Learning', description: 'Study notes and knowledge', color: 'bg-amber-500' },
-];
-
-const sampleNotes: Note[] = [
-  { id: '1', content: 'Finish the quarterly report by Friday', categoryId: '1', timestamp: new Date('2025-11-20'), icon: 'briefcase' },
-  { id: '2', content: 'Remember to call mom this weekend', categoryId: '2', timestamp: new Date('2025-11-20'), icon: 'heart' },
-  { id: '3', content: 'App idea: A plant watering reminder with AI plant health diagnosis', categoryId: '3', timestamp: new Date('2025-11-19'), icon: 'lightbulb' },
-  { id: '4', content: 'Buy groceries: milk, eggs, bread, coffee', categoryId: '4', timestamp: new Date('2025-11-21'), icon: 'check-circle' },
-  { id: '5', content: 'Learn about React Server Components and streaming', categoryId: '5', timestamp: new Date('2025-11-18'), icon: 'book-open' },
-  { id: '6', content: 'Schedule team meeting for project kickoff next Tuesday', categoryId: '1', timestamp: new Date('2025-11-21'), icon: 'briefcase' },
-  { id: '7', content: 'What if we redesigned city parks to be more interactive?', categoryId: '3', timestamp: new Date('2025-11-17'), icon: 'lightbulb' },
-  { id: '8', content: 'Review and respond to client emails', categoryId: '4', timestamp: new Date('2025-11-21'), icon: 'check-circle' },
-];
-
 export default function App() {
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
-  const [notes, setNotes] = useState<Note[]>(sampleNotes);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const addNote = (content: string, categoryId: string, icon: string) => {
-    const newNote: Note = {
-      id: Date.now().toString(),
-      content,
-      categoryId,
-      timestamp: new Date(),
-      icon,
-    };
-    setNotes([newNote, ...notes]);
+  // --- Data Fetching ---
+  const fetchData = async () => {
+    try {
+      const [apiNotes, apiCategories] = await Promise.all([
+        NoteNestAPI.getNotes(false), // Fetch active notes
+        NoteNestAPI.getCategories()
+      ]);
+
+      // Map Backend Categories to Frontend UI
+      const uiCategories = apiCategories.map((c: BackendCategory) => ({
+        id: c._id,
+        name: c.name,
+        description: c.description || '',
+        color: c.color_code || 'bg-indigo-500' // Default color if missing
+      }));
+
+      // Map Backend Notes to Frontend UI
+      const uiNotes = apiNotes.map((n: BackendNote) => ({
+        id: n._id,
+        content: n.content,
+        categoryId: n.category_id,
+        timestamp: new Date(n.updated_at),
+        icon: 'file-text' // Default icon
+      }));
+
+      setCategories(uiCategories);
+      setNotes(uiNotes);
+    } catch (error) {
+      console.error("Failed to load data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const deleteNote = (id: string) => {
-    setNotes(notes.filter(note => note.id !== id));
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // --- Actions ---
+  const handleAddSmartNote = async (content: string) => {
+    try {
+      await NoteNestAPI.createSmartNote(content);
+      await fetchData(); // Refresh to see the new note and auto-category
+    } catch (error) {
+      console.error("Failed to create smart note:", error);
+    }
   };
 
-  const addCategory = (name: string, description: string, color: string) => {
-    const newCategory: Category = {
-      id: Date.now().toString(),
-      name,
-      description,
-      color,
-    };
-    setCategories([...categories, newCategory]);
+  const handleDeleteNote = async (id: string) => {
+    try {
+      await NoteNestAPI.deleteNote(id);
+      setNotes(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error("Failed to delete note:", error);
+    }
+  };
+
+  const handleAddCategory = async (name: string, description: string, color: string) => {
+    try {
+      await NoteNestAPI.createCategory(name, description, color);
+      await fetchData();
+    } catch (error) {
+      console.error("Failed to create category:", error);
+    }
   };
 
   const filteredNotes = selectedCategory
     ? notes.filter(note => note.categoryId === selectedCategory)
     : notes;
+
+  if (isLoading) return <div className="flex h-screen items-center justify-center">Loading NoteNest...</div>;
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 to-amber-50/30 overflow-hidden">
@@ -88,7 +115,7 @@ export default function App() {
         />
       )}
 
-      {/* Sidebar - hidden on mobile, slides in when open */}
+      {/* Sidebar */}
       <div className={`
         fixed lg:static inset-y-0 left-0 z-50
         transform transition-transform duration-300 ease-in-out
@@ -144,7 +171,8 @@ export default function App() {
         </div>
 
         <div className="px-4 sm:px-6 pb-3 sm:pb-4">
-          <SmartInput categories={categories} onAddNote={addNote} />
+          {/* Pass the Async Handler here */}
+          <SmartInput onAddNote={handleAddSmartNote} />
         </div>
 
         <div className="flex-1 overflow-auto px-4 sm:px-6 pb-4 sm:pb-6">
@@ -154,7 +182,7 @@ export default function App() {
             <NotesGrid 
               notes={filteredNotes} 
               categories={categories}
-              onDeleteNote={deleteNote}
+              onDeleteNote={handleDeleteNote}
             />
           )}
         </div>
@@ -163,7 +191,7 @@ export default function App() {
       <CategoryModal
         open={showCategoryModal}
         onOpenChange={setShowCategoryModal}
-        onAddCategory={addCategory}
+        onAddCategory={handleAddCategory}
         existingCategories={categories}
       />
     </div>
