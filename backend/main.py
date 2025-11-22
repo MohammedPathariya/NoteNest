@@ -1,16 +1,24 @@
-# main.py
-
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Body, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from bson.objectid import ObjectId
 import datetime
-import asyncio 
+from openai import OpenAI # Import OpenAI
 
+# Internal imports
 from database import Notes, Categories, serialize_doc, get_analytics_data, get_or_create_uncategorized_id
 from models import NoteIn, NoteOut, NoteUpdate, CategoryIn, CategoryOut, CategoryUpdate, SmartNoteIn
 from typing import List, Dict, Any
 
-app = FastAPI(title="NoteNest API", version="2.0.0")
+# --- Load Environment Variables ---
+load_dotenv() # This loads the .env file
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Initialize OpenAI Client
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+app = FastAPI(title="NoteNest API", version="2.1.0")
 
 # --- CORS Configuration ---
 origins = [
@@ -29,32 +37,70 @@ app.add_middleware(
 )
 
 # ==============================================================================
-# --- 🤖 AI / SMART FEATURES ---
+# --- 🤖 REAL AI / SMART FEATURES ---
 # ==============================================================================
 
-async def classify_note_with_llm_simulation(content: str, categories: List[str]) -> str:
-    """Simulates an LLM classification (Placeholder for real API)."""
-    await asyncio.sleep(0.5) 
-    content_lower = content.lower()
+def classify_with_openai(content: str, categories: List[str]) -> str:
+    """
+    Calls OpenAI GPT-4o-mini to categorize the note.
+    """
+    if not OPENAI_API_KEY:
+        print("⚠️ No API Key found. Falling back to 'Uncategorized'.")
+        return "Uncategorized"
+
+    # Construct the prompt
+    prompt = f"""
+    You are a helpful assistant for a note-taking app.
     
-    # Simple Heuristics
-    if any(x in content_lower for x in ["meeting", "call", "email", "report"]): return "Work"
-    if any(x in content_lower for x in ["grocery", "buy", "milk", "gym"]): return "Personal"
-    if any(x in content_lower for x in ["idea", "app", "project"]): return "Ideas"
-    if any(x in content_lower for x in ["learn", "study", "read"]): return "Learning"
+    Task: Categorize the following note content into EXACTLY one of these categories: {', '.join(categories)}.
     
-    return "Uncategorized" 
+    Rules:
+    1. Return ONLY the category name. No other text.
+    2. If the note doesn't fit any category well, return 'Uncategorized'.
+    
+    Note Content: "{content}"
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a precise classification engine."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3, # Low temperature for consistent results
+            max_tokens=10
+        )
+        
+        predicted_category = response.choices[0].message.content.strip()
+        
+        # Safety check: Ensure the AI returned a valid category name
+        clean_categories = [c.lower() for c in categories]
+        if predicted_category.lower() in clean_categories:
+            # Match the casing from the original list
+            index = clean_categories.index(predicted_category.lower())
+            return categories[index]
+            
+        return "Uncategorized"
+
+    except Exception as e:
+        print(f"❌ OpenAI API Error: {e}")
+        return "Uncategorized"
 
 @app.post("/smart-notes/", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
 async def create_smart_note(smart_note: SmartNoteIn):
-    """AI-Powered Note Creation."""
+    """AI-Powered Note Creation: Uses OpenAI to categorize."""
     
-    # 1. Fetch user's categories
+    # 1. Fetch user's categories to give context to the LLM
     user_categories = list(Categories.find({"user_id": smart_note.user_id}))
     category_names = [cat['name'] for cat in user_categories]
     
-    # 2. AI Classification
-    predicted_name = await classify_note_with_llm_simulation(smart_note.content, category_names)
+    if not category_names:
+        # If no categories exist, force Uncategorized (save API cost)
+        predicted_name = "Uncategorized"
+    else:
+        # 2. REAL AI Classification
+        predicted_name = classify_with_openai(smart_note.content, category_names)
     
     # 3. Resolve Category ID
     target_category = next((cat for cat in user_categories if cat['name'] == predicted_name), None)
@@ -64,7 +110,7 @@ async def create_smart_note(smart_note: SmartNoteIn):
     else:
         target_id = get_or_create_uncategorized_id(smart_note.user_id)
 
-    # 4. Save Note
+    # 4. Construct Note
     new_note = {
         "user_id": smart_note.user_id,
         "category_id": target_id,
@@ -73,12 +119,13 @@ async def create_smart_note(smart_note: SmartNoteIn):
         "created_at": datetime.datetime.now(),
         "updated_at": datetime.datetime.now(),
         "archived": False,
-        "is_reminder": ("deadline" in smart_note.content.lower()),
-        "llm_ref": smart_note.llm_ref
+        "is_reminder": ("deadline" in smart_note.content.lower() or "remind" in smart_note.content.lower()),
+        "llm_ref": "gpt-4o-mini" # Updated ref
     }
     
     result = Notes.insert_one(new_note)
-    return serialize_doc(Notes.find_one({"_id": result.inserted_id}))
+    created_note = Notes.find_one({"_id": result.inserted_id})
+    return serialize_doc(created_note)
 
 # ==============================================================================
 # --- 📝 NOTE CRUD ---
@@ -86,40 +133,47 @@ async def create_smart_note(smart_note: SmartNoteIn):
 
 @app.post("/notes/", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
 async def create_note(note: NoteIn):
+    """Manual note creation."""
     try:
         category_obj_id = ObjectId(note.category_id)
     except:
-        raise HTTPException(status_code=400, detail="Invalid Category ID.")
+        raise HTTPException(status_code=400, detail="Invalid Category ID format.")
 
+    # Validate Category Exists
     if not Categories.find_one({"_id": category_obj_id}):
          raise HTTPException(status_code=404, detail="Category not found.")
 
     new_note = note.dict()
     new_note['category_id'] = category_obj_id
+    
+    # Audit Fields
     new_note['created_at'] = datetime.datetime.now()
     new_note['updated_at'] = datetime.datetime.now()
     new_note['archived'] = False
     new_note['is_reminder'] = False
     
     result = Notes.insert_one(new_note)
-    return serialize_doc(Notes.find_one({"_id": result.inserted_id}))
+    created_note = Notes.find_one({"_id": result.inserted_id})
+    return serialize_doc(created_note)
 
 @app.get("/notes/{user_id}", response_model=List[NoteOut])
 async def get_notes_by_user(
     user_id: str, 
-    archived: bool = Query(False)
+    archived: bool = Query(False, description="Filter active vs archived notes")
 ):
-    """Fetch notes (Active or Archived)."""
-    cursor = Notes.find({"user_id": user_id, "archived": archived}).sort("updated_at", -1)
-    return [serialize_doc(note) for note in cursor]
+    """Fetch notes. Defaults to Active (archived=False)."""
+    notes_cursor = Notes.find({"user_id": user_id, "archived": archived}).sort("updated_at", -1)
+    return [serialize_doc(note) for note in notes_cursor]
 
 @app.put("/notes/{note_id}", response_model=NoteOut)
 async def update_note(note_id: str, update_data: NoteUpdate):
+    """Update content, tags, or category."""
     try:
         note_obj_id = ObjectId(note_id)
     except:
         raise HTTPException(status_code=400, detail="Invalid Note ID.")
 
+    # Filter out None values
     update_fields = update_data.dict(exclude_none=True)
     
     if 'category_id' in update_fields:
@@ -128,6 +182,7 @@ async def update_note(note_id: str, update_data: NoteUpdate):
         except:
              raise HTTPException(status_code=400, detail="Invalid Category ID.")
 
+    # Audit: Update timestamp
     update_fields['updated_at'] = datetime.datetime.now()
 
     result = Notes.update_one({"_id": note_obj_id}, {"$set": update_fields})
@@ -135,7 +190,8 @@ async def update_note(note_id: str, update_data: NoteUpdate):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Note not found.")
         
-    return serialize_doc(Notes.find_one({"_id": note_obj_id}))
+    updated_note = Notes.find_one({"_id": note_obj_id})
+    return serialize_doc(updated_note)
 
 @app.put("/notes/{note_id}/archive", response_model=NoteOut)
 async def archive_note(note_id: str, user_id: str = Query(None)):
@@ -145,7 +201,6 @@ async def archive_note(note_id: str, user_id: str = Query(None)):
     except:
         raise HTTPException(status_code=400, detail="Invalid Note ID.")
     
-    # We check user_id if provided for extra security, but primarily use note_id
     query = {"_id": note_obj_id}
     if user_id:
         query["user_id"] = user_id
@@ -158,16 +213,19 @@ async def archive_note(note_id: str, user_id: str = Query(None)):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Note not found.")
         
-    return serialize_doc(Notes.find_one({"_id": note_obj_id}))
+    updated_note = Notes.find_one({"_id": note_obj_id})
+    return serialize_doc(updated_note)
 
 @app.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_note(note_id: str):
+    """Hard Delete: Permanently remove note."""
     try:
         note_obj_id = ObjectId(note_id)
     except:
         raise HTTPException(status_code=400, detail="Invalid Note ID.")
 
     result = Notes.delete_one({"_id": note_obj_id})
+    
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Note not found.")
     return

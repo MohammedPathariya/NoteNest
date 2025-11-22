@@ -18,3 +18,4 @@ anaconda3/
 /frontend/build
 /frontend/.npm
 .env
+backend/.env
