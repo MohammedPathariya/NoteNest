@@ -5,13 +5,14 @@ import { Badge } from './ui/badge';
 import { 
   Briefcase, Heart, Lightbulb, CheckCircle, BookOpen, 
   FileText, ShoppingCart, Phone, Bell, Calendar, Trash2,
-  Clock
+  Clock, Pencil
 } from 'lucide-react';
 
 interface NoteCardProps {
   note: Note;
   category: Category;
   onDelete: (id: string) => void;
+  onEdit: (note: Note) => void;
 }
 
 const iconMap: Record<string, any> = {
@@ -30,37 +31,26 @@ const iconMap: Record<string, any> = {
 // --- IMPROVED DATE FORMATTER ---
 const formatDate = (date: Date) => {
   const now = new Date();
-  // Get difference in seconds
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  // Handle future dates (prevent -1 days ago) or immediate creation
-  if (diffInSeconds < 60) {
-    return 'Just now';
-  }
-
-  // Handle minutes
+  if (diffInSeconds < 60) return 'Just now';
   if (diffInSeconds < 3600) {
     const mins = Math.floor(diffInSeconds / 60);
     return `${mins}m ago`;
   }
-
-  // Handle hours
-  if (diffInSeconds < 86400) { // Less than 24 hours
+  if (diffInSeconds < 86400) {
     const hours = Math.floor(diffInSeconds / 3600);
     return `${hours}h ago`;
   }
 
-  // Handle days
   const days = Math.floor(diffInSeconds / 86400);
-  
   if (days === 1) return 'Yesterday';
   if (days < 7) return `${days} days ago`;
   
-  // Fallback to full date for older notes
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-export function NoteCard({ note, category, onDelete }: NoteCardProps) {
+export function NoteCard({ note, category, onDelete, onEdit }: NoteCardProps) {
   const IconComponent = iconMap[note.icon] || FileText;
 
   return (
@@ -80,22 +70,38 @@ export function NoteCard({ note, category, onDelete }: NoteCardProps) {
           </Badge>
         </div>
 
-        {/* Delete Button (Visible on Hover) */}
-        <Button 
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent card click if you add one later
-            onDelete(note.id);
-          }}
-          variant="ghost" 
-          size="sm" 
-          className="opacity-0 group-hover:opacity-100 transition-opacity size-7 sm:size-8 p-0 text-slate-400 hover:text-rose-500 hover:bg-rose-50 -mt-1 -mr-1"
-        >
-          <Trash2 className="size-3 sm:size-4" />
-        </Button>
+        {/* --- ACTION BUTTONS --- */}
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1">
+          {/* Edit Button */}
+          <Button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(note);
+            }}
+            variant="ghost" 
+            size="sm" 
+            className="size-7 sm:size-8 p-0 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50"
+          >
+            <Pencil className="size-3 sm:size-4" />
+          </Button>
+
+          {/* Delete Button */}
+          <Button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(note.id);
+            }}
+            variant="ghost" 
+            size="sm" 
+            className="size-7 sm:size-8 p-0 text-slate-400 hover:text-rose-500 hover:bg-rose-50"
+          >
+            <Trash2 className="size-3 sm:size-4" />
+          </Button>
+        </div>
       </div>
       
       {/* Note Content */}
-      <p className="text-slate-700 mb-3 sm:mb-4 leading-relaxed text-sm sm:text-base break-words">
+      <p className="text-slate-700 mb-3 sm:mb-4 leading-relaxed text-sm sm:text-base break-words whitespace-pre-wrap">
         {note.content}
       </p>
 

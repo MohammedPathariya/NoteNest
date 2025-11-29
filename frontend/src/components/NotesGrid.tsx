@@ -6,9 +6,10 @@ interface NotesGridProps {
   notes: Note[];
   categories: Category[];
   onDeleteNote: (id: string) => void;
+  onEditNote: (note: Note) => void; // New Prop
 }
 
-export function NotesGrid({ notes, categories, onDeleteNote }: NotesGridProps) {
+export function NotesGrid({ notes, categories, onDeleteNote, onEditNote }: NotesGridProps) {
   if (notes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8 sm:p-12">
@@ -35,6 +36,7 @@ export function NotesGrid({ notes, categories, onDeleteNote }: NotesGridProps) {
             note={note}
             category={category}
             onDelete={onDeleteNote}
+            onEdit={onEditNote} // Pass it here
           />
         );
       })}

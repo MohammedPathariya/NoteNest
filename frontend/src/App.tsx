@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { SmartInput } from './components/SmartInput';
 import { NotesGrid } from './components/NotesGrid';
 import { CategoryModal } from './components/CategoryModal';
+import { EditNoteModal } from './components/EditNoteModal'; // Import Edit Modal
 import { AnalyticsView } from './components/AnalyticsView';
 import { BarChart3, Menu } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -28,7 +29,11 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  // Modals state
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null); // Track note being edited
+  
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +83,16 @@ export default function App() {
       await fetchData(); // Refresh to see the new note and auto-category
     } catch (error) {
       console.error("Failed to create smart note:", error);
+    }
+  };
+
+  const handleUpdateNote = async (id: string, content: string, categoryId: string) => {
+    try {
+      await NoteNestAPI.updateNote(id, content, categoryId);
+      await fetchData(); // Refresh grid to show changes
+      setEditingNote(null); // Close modal
+    } catch (error) {
+      console.error("Failed to update note:", error);
     }
   };
 
@@ -171,7 +186,6 @@ export default function App() {
         </div>
 
         <div className="px-4 sm:px-6 pb-3 sm:pb-4">
-          {/* Pass the Async Handler here */}
           <SmartInput onAddNote={handleAddSmartNote} />
         </div>
 
@@ -183,16 +197,26 @@ export default function App() {
               notes={filteredNotes} 
               categories={categories}
               onDeleteNote={handleDeleteNote}
+              onEditNote={setEditingNote} // Pass the setter to open modal
             />
           )}
         </div>
       </main>
 
+      {/* Modals */}
       <CategoryModal
         open={showCategoryModal}
         onOpenChange={setShowCategoryModal}
         onAddCategory={handleAddCategory}
         existingCategories={categories}
+      />
+
+      <EditNoteModal 
+        isOpen={!!editingNote}
+        onClose={() => setEditingNote(null)}
+        note={editingNote}
+        onUpdate={handleUpdateNote}
+        categories={categories}
       />
     </div>
   );
