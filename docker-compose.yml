@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: notenest-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # This maps your local folder to the container folder
+      # So if you change code locally, it auto-reloads inside Docker!
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    # Ensure hot-reloading works well on all OSs
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build: ./frontend
+    container_name: notenest-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      # This line prevents the container's node_modules from being overwritten by your local (possibly empty) one
+      - /app/node_modules
+    depends_on:
+      - backend
+    # Hot reloading setting for Vite in Docker
+    environment:
+      - CHOKIDAR_USEPOLLING=true
