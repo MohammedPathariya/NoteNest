@@ -1,42 +1,153 @@
-# 🚀 NoteNest: Technical Development Roadmap
+# NoteNest - Smart Notes Management System 📝✨
 
-This roadmap outlines the three critical phases required to move from the current backend setup to a fully functional, intelligent web application.
+<img width="1440" height="814" alt="Screenshot 2025-11-29 at 2 32 43 PM" src="https://github.com/user-attachments/assets/99f6ac39-d812-4a41-a3fa-0c9f71b339d0" />
 
-## 📌 Phase 1: Backend Finalization & Data Bridge
 
-**Goal:** Complete all necessary API endpoints, particularly for Category Management, ensuring the frontend has everything it needs to function.
+**NoteNest** is a modern, intelligent note-taking application designed to transform chaotic thoughts into organized actions. It features a chat-like "Smart Input" that uses AI (GPT-4o-mini) to automatically categorize your notes, saving you the hassle of manual organization.
 
-| Task | HTTP Method | Route | Description |
-| :--- | :--- | :--- | :--- |
-| **1. Category READ** | `GET` | `/categories/{user_id}` | Retrieve the full list of custom categories for the current user. |
-| **2. Category CREATE** | `POST` | `/categories/` | Add a new custom category (requires `user_id`, `name`, `description`). |
-| **3. Category UPDATE** | `PUT` | `/categories/{category_id}` | Modify the name or description of an existing category. |
-| **4. Category DELETE** | `DELETE` | `/categories/{category_id}` | Permanently remove a category. This endpoint must include logic to either reject the deletion if notes are linked, or reassign existing notes to an "Uncategorized" state. |
-| **5. Test & Verify** | `http://127.0.0.1:8000/docs` | Thoroughly test all new Category CRUD endpoints to confirm correct database operation and data validation. |
+Built with a robust **FastAPI** backend, a scalable **MongoDB** database, and a responsive **React** frontend, NoteNest offers a seamless full-stack experience with real-time analytics and auditing.
 
------
+## 🚀 Key Features
 
-## 💻 Phase 2: Frontend Core Integration (The Functional MVP)
+  * **🧠 AI-Powered Organization:** Simply type "Buy milk" or "Meeting at 3 PM," and the system automatically files it into categories like "Personal" or "Work" using OpenAI.
+  * **📊 Real-Time Analytics:** Visualize your productivity with dynamic charts showing note distribution and weekly activity.
+  * **🗂️ Smart Category Management:** Create, edit, and color-code custom categories. Deleting a category safely reassigns notes to "Uncategorized" to prevent data loss.
+  * **⚡ Full CRUD Operations:** Create, Read, Update, and Delete notes and categories with instant UI updates.
+  * **🗑️ Soft Delete & Archiving:** Never lose important data accidentally. Archive notes to hide them from your main feed without permanent deletion.
+  * **🐳 Fully Dockerized:** Run the entire stack (Frontend + Backend) with a single command.
 
-**Goal:** Connect the React frontend to the API and establish the core user flow, achieving a complete, submittable application that fulfills all class requirements (CRUD).
+## 🛠️ Tech Stack
 
-| Component | Backend Route | Action & Logic |
-| :--- | :--- | :--- |
-| **1. App State & Data Fetch** | `GET /notes/{user_id}`<br>`GET /categories/{user_id}` | **`App.tsx` / `Context`:** Fetch both notes and categories on initial load. Store all data centrally to manage global application state (readiness, loading status). |
-| **2. Sidebar & Navigation** | N/A | **`Sidebar.tsx`:** Map over the fetched category list to render navigation links. Clicking a link should filter the notes displayed in the main grid based on the selected `category_id`. |
-| **3. Category Management UI**| `POST/PUT/DELETE /categories...` | **`CategoryModal.tsx`:** Implement forms and handlers to make CRUD calls directly to the category endpoints, ensuring the local state (and sidebar) updates upon successful response. |
-| **4. Note Creation (Manual)** | `POST /notes/` | **`SmartInput.tsx`:** Implement a temporary "manual" creation flow: The user enters `content`, but the component uses a hardcoded or default `category_id` and calls the basic `POST /notes/` endpoint. (This ensures the core feature works without the LLM dependency). |
-| **5. Note Display & CRUD** | `DELETE /notes/{note_id}` | **`NotesGrid.tsx` / `NoteCard.tsx`:** Render notes by mapping over the state.<br>**`NoteCard.tsx`:** Wire up the trash can icon to execute the `DELETE` request, then remove the note from the local state immediately after confirmation. |
+### **Frontend**
 
------
+  * **Framework:** React 18 (Vite)
+  * **Language:** TypeScript
+  * **Styling:** Tailwind CSS
+  * **UI Components:** Shadcn/UI + Lucide Icons
+  * **Charts:** Recharts
+  * **State Management:** React Hooks
 
-## ✨ Phase 3: Intelligence, Analytics, & Polish (The Standout Features)
+### **Backend**
 
-**Goal:** Integrate the LLM (Artificial Intelligence) for smart categorization and implement the final visualization elements for the dashboard.
+  * **Framework:** FastAPI (Python 3.11)
+  * **Database:** MongoDB Atlas (NoSQL)
+  * **Driver:** PyMongo (Async/Sync)
+  * **AI Integration:** OpenAI API (`gpt-4o-mini`)
+  * **Validation:** Pydantic Models
 
-| Task | Backend Route / File | Action & Logic |
-| :--- | :--- | :--- |
-| **1. LLM Backend** | New `POST /smart-note/` | **`main.py`:** Build the new "smart" route. This function will take the note content, call the LLM API (e.g., OpenAI/Claude) to get the best category based on the user's existing categories, and then save the note to MongoDB. |
-| **2. Frontend Smart Swap** | `POST /smart-note/` | **`SmartInput.tsx`:** Update the submit handler to call the new **`/smart-note/`** route instead of the "dumb" `/notes/` route. The user now just types naturally, and the AI handles the organization. |
-| **3. Implement Analytics** | `GET /analytics/{user_id}` | **`AnalyticsView.tsx`:** Call this final route to retrieve the aggregated data (category names and counts). Pass this data to the chart components to render the "Notes by Category" pie chart and the "Activity" bar chart. |
-| **4. Final Deployment** | N/A | Deploy the FastAPI backend (e.g., Heroku, Vercel) and the React frontend (e.g., Netlify). Final review of documentation and responsiveness. |
+## 🔧 Installation & Setup
+
+### Prerequisites
+
+  * **Docker Desktop** (Recommended) OR Python 3.11+ & Node.js 18+
+  * **MongoDB Atlas Account** (Free Tier)
+  * **OpenAI API Key**
+
+### Option 1: Run with Docker (Recommended 🐳)
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/MohammedPathariya/NoteNest.git
+    cd NoteNest
+    ```
+
+2.  **Configure Environment Variables:**
+    Create a `.env` file in the `backend/` directory:
+
+    ```env
+    # backend/.env
+    OPENAI_API_KEY=sk-proj-your-actual-openai-key-here
+    ```
+
+    *(Note: The MongoDB connection string is currently pre-configured in `database.py` for ease of review, but for production, add `CONNECTION_STRING` here too.)*
+
+3.  **Run the Application:**
+
+    ```bash
+    docker-compose up --build
+    ```
+
+4.  **Access the App:**
+
+      * **Frontend:** [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
+      * **Backend Docs:** [http://localhost:8000/docs](https://www.google.com/search?q=http://localhost:8000/docs)
+
+### Option 2: Manual Setup (Local Development)
+
+If you prefer running services individually:
+
+#### 1\. Backend Setup
+
+```bash
+cd backend
+# Create and activate virtual environment (Optional but recommended)
+conda create -n notenest python=3.11
+conda activate notenest
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run Server
+uvicorn main:app --reload
+```
+
+#### 2\. Frontend Setup
+
+```bash
+cd frontend
+# Install dependencies
+npm install
+
+# Run Dev Server
+npm run dev
+```
+
+## 🧪 Database Seeding (Optional)
+
+To instantly populate your empty database with realistic categories (Finance, Health, Work) and 20+ sample notes for testing analytics:
+
+1.  Ensure your backend environment is active (`conda activate notenest`).
+2.  Run the seed scripts from the root folder:
+
+<!-- end list -->
+
+```bash
+# 1. Create standard categories (Wipes old categories!)
+python seed_categories.py
+
+# 2. Create sample notes linked to those categories
+python seed_notes.py
+```
+
+Refresh your browser to see the populated dashboard\!
+
+## 📂 Project Structure
+
+```text
+NoteNest/
+├── backend/             # FastAPI Server
+│   ├── main.py          # API Routes & Logic
+│   ├── database.py      # MongoDB Connection & Aggregations
+│   ├── models.py        # Pydantic Data Schemas
+│   └── requirements.txt # Python Dependencies
+├── frontend/            # React Application
+│   ├── src/
+│   │   ├── components/  # UI Components (Sidebar, NoteCard, etc.)
+│   │   ├── api.ts       # Axios Service Layer
+│   │   └── App.tsx      # Main Logic & State
+├── seed_categories.py   # Database Population Script
+├── seed_notes.py        # Database Population Script
+├── docker-compose.yml   # Docker Orchestration
+└── README.md            # Project Documentation
+```
+
+## 👥 Team - ThinkStack
+
+  * **Aditya Pise:** Backend Architecture, LLM Integration, Dockerization
+  * **Mohammed Pathariya:** Database Schema Design, Analytics Pipeline, API Logic
+  * **Nileet Savale:** React Frontend, UI/UX Design, State Management
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
