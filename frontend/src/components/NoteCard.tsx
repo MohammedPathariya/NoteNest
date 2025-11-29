@@ -28,7 +28,6 @@ const iconMap: Record<string, any> = {
   'calendar': Calendar,
 };
 
-// --- IMPROVED DATE FORMATTER ---
 const formatDate = (date: Date) => {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -54,14 +53,17 @@ export function NoteCard({ note, category, onDelete, onEdit }: NoteCardProps) {
   const IconComponent = iconMap[note.icon] || FileText;
 
   return (
-    <Card className="group relative bg-white p-4 sm:p-5 shadow-md hover:shadow-xl transition-all duration-300 border-0 hover:-translate-y-1">
-      <div className="flex items-start gap-2 sm:gap-3 mb-3">
-        {/* Category Icon */}
+    <Card 
+      className="group relative bg-white p-4 sm:p-5 shadow-md hover:shadow-xl transition-all duration-300 border-0 hover:-translate-y-1 flex flex-col"
+      style={{ height: '240px' }} // Force fixed height
+    >
+      
+      {/* --- HEADER (Icon, Badge, Actions) --- */}
+      <div className="flex items-start gap-2 sm:gap-3 mb-3 shrink-0">
         <div className={`size-9 sm:size-10 ${category.color} rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-md`}>
           <IconComponent className="size-4 sm:size-5" />
         </div>
         
-        {/* Category Badge */}
         <div className="flex-1 min-w-0">
           <Badge 
             className={`${category.color} text-white border-0 shadow-sm text-xs`}
@@ -70,9 +72,7 @@ export function NoteCard({ note, category, onDelete, onEdit }: NoteCardProps) {
           </Badge>
         </div>
 
-        {/* --- ACTION BUTTONS --- */}
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1">
-          {/* Edit Button */}
           <Button 
             onClick={(e) => {
               e.stopPropagation();
@@ -85,7 +85,6 @@ export function NoteCard({ note, category, onDelete, onEdit }: NoteCardProps) {
             <Pencil className="size-3 sm:size-4" />
           </Button>
 
-          {/* Delete Button */}
           <Button 
             onClick={(e) => {
               e.stopPropagation();
@@ -100,16 +99,19 @@ export function NoteCard({ note, category, onDelete, onEdit }: NoteCardProps) {
         </div>
       </div>
       
-      {/* Note Content */}
-      <p className="text-slate-700 mb-3 sm:mb-4 leading-relaxed text-sm sm:text-base break-words whitespace-pre-wrap">
-        {note.content}
-      </p>
+      {/* --- CONTENT (Scrollable Area) --- */}
+      <div className="flex-1 overflow-y-auto min-h-0 mb-3 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+        <p className="text-slate-700 leading-relaxed text-sm sm:text-base break-words whitespace-pre-wrap">
+          {note.content}
+        </p>
+      </div>
 
-      {/* Timestamp */}
-      <div className="flex items-center gap-2 text-xs text-slate-500">
+      {/* --- FOOTER (Timestamp) --- */}
+      <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0 mt-auto pt-2 border-t border-slate-100">
         <Clock className="size-3" />
         <span>{formatDate(note.timestamp)}</span>
       </div>
+
     </Card>
   );
 }
