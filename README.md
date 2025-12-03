@@ -1,5 +1,7 @@
 # NoteNest - Smart Notes Management System 📝✨
 
+---
+
 <img width="1440" height="814" alt="Screenshot 2025-11-29 at 2 32 43 PM" src="https://github.com/user-attachments/assets/99f6ac39-d812-4a41-a3fa-0c9f71b339d0" />
 
 
